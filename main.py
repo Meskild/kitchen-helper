@@ -10,22 +10,22 @@ def add_recipe():
     Rec_category = input("Kategori: ")
     
     cursor.execute("""
-    SELECT id FROM Recipe WHERE name = ?
+    SELECT id FROM Category WHERE category = ?
     """, (Rec_category,))
     result = cursor.fetchone()
     if result:
-        recipe_id = result[0]
+        category_id = result[0]
     else:
         cursor.execute("""
-        INSERT INTO Recipe (category) VALUES (?)
+        INSERT INTO Category (category) VALUES (?)
         """, (Rec_category,))
-        recipe_id = cursor.lastrowid
+        category_id = cursor.lastrowid
 
-    cursor.execute("INSERT INTO Recipe (name, description, total_time, directions, category) VALUES (?, ?, ?, ?, ?)",
-                    (Rec_name, Rec_description, Rec_total_time, Rec_directions, Rec_category))
-    return Rec_name, Rec_description, Rec_total_time, Rec_directions, Rec_category
+    cursor.execute("INSERT INTO Recipe (name, description, total_time, directions, category_id) VALUES (?, ?, ?, ?, ?)",
+                    (Rec_name, Rec_description, Rec_total_time, Rec_directions, category_id))
+    return cursor.lastrowid  # returner id'et
 
-def add_ingredient():
+def add_ingredient(recipe_id, Ing_name):
     cursor.execute("""
     SELECT id FROM Ingredients WHERE name = ?
     """, (Ing_name,))
@@ -50,7 +50,14 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS Recipe (
                description TEXT, 
                total_time INTEGER,
                directions TEXT,
-               category TEXT
+               category_id INTEGER,
+               FOREIGN KEY(category_id) REFERENCES Category(id)
+               )
+               """)
+
+cursor.execute("""CREATE TABLE IF NOT EXISTS Category (
+               id INTEGER PRIMARY KEY NOT NULL, 
+               category TEXT UNIQUE
                )
                """)
 
@@ -75,16 +82,13 @@ done = False
 while not done:
     choice = input("Vil du tilføje en opskrift? (ja/nej): ").strip().lower()
     if choice == 'ja':
-        done = False
-        add_recipe()
-        recipe_id = cursor.lastrowid
+        recipe_id = add_recipe()
         flere = False
         while not flere:
             more_ingredients = input("Vil du tilføje en ingrediens? (ja/nej): ").strip().lower()
             if more_ingredients == 'ja':
-                flere = False
                 Ing_name = input("Ingrediens Navn: ")
-                add_ingredient()
+                add_ingredient(recipe_id, Ing_name)
 
             elif more_ingredients == 'nej':
                 flere = True
@@ -98,7 +102,7 @@ while not done:
     else:
         print("Ugyldigt valg, prøv igen.")
 
-rows1 = cursor.execute("SELECT id, name, description, total_time, directions, category FROM Recipe").fetchall()
+rows1 = cursor.execute("SELECT id, name, description, total_time, directions FROM Recipe").fetchall()
 print(rows1)
 rows2 = cursor.execute("SELECT id, name FROM Ingredients").fetchall()
 print(rows2)
@@ -106,10 +110,19 @@ rows3 = cursor.execute("SELECT id, recipe_id, ingredient_id, amount, unit FROM R
 print(rows3)
 
 cursor.execute("""
-SELECT Recipe.name, Recipe.description, Recipe.total_time, Recipe.directions, Recipe.category, Ingredients.name, RecIng.amount, RecIng.unit
-FROM Recipe, Ingredients, RecIng
-WHERE Recipe.id = RecIng.recipe_id
-AND Ingredients.id = RecIng.ingredient_id
+SELECT 
+    Recipe.name, 
+    Recipe.description, 
+    Recipe.total_time, 
+    Recipe.directions, 
+    Category.category, 
+    Ingredients.name, 
+    RecIng.amount, 
+    RecIng.unit
+FROM Recipe
+JOIN Category ON Recipe.category_id = Category.id
+JOIN RecIng ON Recipe.id = RecIng.recipe_id
+JOIN Ingredients ON Ingredients.id = RecIng.ingredient_id
 """)
 opskrifter = cursor.fetchall()
 print("Alle opskrifter: ", opskrifter)
